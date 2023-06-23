@@ -34,7 +34,7 @@ p_ :: Content -> Structure
 p_ = structConst "p" . getContentString
 
 h_ :: Int -> Content -> Structure
-h_ n = Structure . el ("h" <> show n) . show . getContentString
+h_ n = Structure . el ("h" <> show n) . getContentString
 
 ol_ :: [Structure] -> Structure
 ol_ = list_ "ol"
