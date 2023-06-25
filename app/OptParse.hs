@@ -8,6 +8,7 @@ module OptParse
 where
 
 import Data.Maybe (fromMaybe)
+import HsBlog.Env
 import Options.Applicative
 
 ------------------------------------------------
@@ -17,7 +18,7 @@ import Options.Applicative
 -- | Model
 data Options
   = ConvertSingle SingleInput SingleOutput
-  | ConvertDir FilePath FilePath
+  | ConvertDir FilePath FilePath Env
   deriving (Show)
 
 -- | A single input source
@@ -41,25 +42,30 @@ parse :: IO Options
 parse = execParser opts
 
 opts :: ParserInfo Options
-opts = info (helper <*> pOptions) desc
-  where
-    desc = fullDesc <> descHeader <> descBody
-    descHeader = header "HsBlogGen - a static blog generator"
-    descBody = progDesc "Convert markup files or directories to html"
-
+opts =
+  info
+    (pOptions <**> helper)
+    ( fullDesc
+        <> header "hs-blog-gen - a static blog generator"
+        <> progDesc "Convert markup files or directories to html"
+    )
 -- | Parser for all options
 pOptions :: Parser Options
-pOptions = subparser $ pSingleCommand <> pDirCommand
-
-pSingleCommand :: Mod CommandFields Options
-pSingleCommand = command "convert" $ info (helper <*> pConvertSingle) desc
-  where
-    desc = progDesc "Convert a single markup source to html"
-
-pDirCommand :: Mod CommandFields Options
-pDirCommand = command "convert-dir" $ info (helper <*> pConvertDir) desc
-  where
-    desc = progDesc "Convert a directory of markup files to html"
+pOptions =
+  subparser
+    ( command
+        "convert"
+        ( info
+            (helper <*> pConvertSingle)
+            (progDesc "Convert a single markup source to html")
+        )
+        <> command
+          "convert-dir"
+          ( info
+              (helper <*> pConvertDir)
+              (progDesc "Convert a directory of markup files to html")
+          )
+    )
 
 ------------------------------------------------
 
@@ -67,45 +73,96 @@ pDirCommand = command "convert-dir" $ info (helper <*> pConvertDir) desc
 
 -- | Parser for single source to sink option
 pConvertSingle :: Parser Options
-pConvertSingle = ConvertSingle <$> pSingleInput <*> pSingleOutput
+pConvertSingle =
+  ConvertSingle <$> pSingleInput <*> pSingleOutput
 
 -- | Parser for single input source
 pSingleInput :: Parser SingleInput
-pSingleInput = fromMaybe Stdin <$> optional pInputFile
+pSingleInput =
+  fromMaybe Stdin <$> optional pInputFile
 
 -- | Parser for single output sink
 pSingleOutput :: Parser SingleOutput
-pSingleOutput = fromMaybe Stdout <$> optional pOutputFile
+pSingleOutput =
+  fromMaybe Stdout <$> optional pOutputFile
 
 -- | Input file parser
 pInputFile :: Parser SingleInput
-pInputFile = InputFile <$> parser
+pInputFile = fmap InputFile parser
   where
-    parser = strOption optFields
-    optFields = long "input" <> short 'i' <> metavar "FILE" <> help "Input file"
+    parser =
+      strOption
+        ( long "input"
+            <> short 'i'
+            <> metavar "FILE"
+            <> help "Input file"
+        )
 
 -- | Output file parser
 pOutputFile :: Parser SingleOutput
 pOutputFile = OutputFile <$> parser
   where
-    parser = strOption optFields
-    optFields = long "output" <> short 'o' <> metavar "FILE" <> help "Output file"
+    parser =
+      strOption
+        ( long "output"
+            <> short 'o'
+            <> metavar "FILE"
+            <> help "Output file"
+        )
 
 ------------------------------------------------
 
 -- * Directory conversion parser
 
 pConvertDir :: Parser Options
-pConvertDir = ConvertDir <$> pInputDir <*> pOutputDir
+pConvertDir =
+  ConvertDir <$> pInputDir <*> pOutputDir <*> pEnv
 
 -- | Parser for input directory
 pInputDir :: Parser FilePath
-pInputDir = strOption optFields
-  where
-    optFields = long "input" <> short 'i' <> metavar "DIRECTORY" <> help "Input directory"
+pInputDir =
+  strOption
+    ( long "input"
+        <> short 'i'
+        <> metavar "DIRECTORY"
+        <> help "Input directory"
+    )
 
 -- | Parser for output directory
 pOutputDir :: Parser FilePath
-pOutputDir = strOption optFields
-  where
-    optFields = long "output" <> short 'o' <> metavar "DIRECTORY" <> help "Output directory"
+pOutputDir =
+  strOption
+    ( long "output"
+        <> short 'o'
+        <> metavar "DIRECTORY"
+        <> help "Output directory"
+    )
+
+-- | Parser for blog environment
+pEnv :: Parser Env
+pEnv =
+  Env <$> pBlogName <*> pStylesheet
+
+-- | Blog name parser
+pBlogName :: Parser String
+pBlogName =
+  strOption
+    ( long "name"
+        <> short 'N'
+        <> metavar "STRING"
+        <> help "Blog name"
+        <> value (eBlogName defaultEnv)
+        <> showDefault
+    )
+
+-- | Stylesheet parser
+pStylesheet :: Parser String
+pStylesheet =
+  strOption
+    ( long "style"
+        <> short 'S'
+        <> metavar "FILE"
+        <> help "Stylesheet filename"
+        <> value (eStylesheetPath defaultEnv)
+        <> showDefault
+    )

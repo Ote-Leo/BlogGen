@@ -8,15 +8,17 @@ newtype Structure = Structure String
 
 newtype Content = Content String
 
+newtype Head = Head String
+
 type Title = String
 
 -- * EDSL
 
-html_ :: Title -> Structure -> Html
-html_ title content = Html . docComp $ docHead <> docBody
+html_ :: Head -> Structure -> Html
+html_ (Head headd) content = Html . docComp $ docHead <> docBody
   where
     docComp = el "html" . getContent
-    docHead = head_ . getContent . title_ . escape $ title
+    docHead = head_ headd
     docBody = body_ . getContent $ content
 
 -- * Structure
@@ -27,8 +29,27 @@ body_ = structConst "body"
 head_ :: String -> Structure
 head_ = structConst "head"
 
-title_ :: String -> Structure
-title_ = structConst "title"
+title_ :: String -> Head
+title_ = Head . el "title" . escape
+
+stylesheet_ :: FilePath -> Head
+stylesheet_ path = Head $ pathHead <> escape path <> pathTail
+  where
+    pathHead = "<link rel=\"stylesheet\" type=\"text/css\" href=\""
+    pathTail = "\"/>"
+
+meta_ :: String -> String -> Head
+meta_ name content = Head $ metaHead <> escape name <> metaBody <> escape content <> metaTail
+  where
+    metaHead = "<meta name=\""
+    metaBody = "\" content=\""
+    metaTail = "\"/>"
+
+instance Semigroup Head where
+  (Head h1) <> (Head h2) = Head (h1 <> h2)
+
+instance Monoid Head where
+  mempty = Head ""
 
 p_ :: Content -> Structure
 p_ = structConst "p" . getContentString

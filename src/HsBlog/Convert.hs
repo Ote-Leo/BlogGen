@@ -1,10 +1,16 @@
 module HsBlog.Convert where
 
+import HsBlog.Env
 import qualified HsBlog.Html as Html
 import qualified HsBlog.Markup as Markup
 
-convert :: Html.Title -> Markup.Document -> Html.Html
-convert title = Html.html_ title . foldMap convertStructure
+convert :: Env -> Html.Title -> Markup.Document -> Html.Html
+convert env title doc = Html.html_ headd body
+  where
+    headd = Html.title_ (eBlogName env <> " - " <> title)
+    article = foldMap convertStructure doc
+    websiteTitle = Html.h_ 1 (Html.link_ "index.html" $ Html.txt_ $ eBlogName env)
+    body = websiteTitle <> article
 
 convertStructure :: Markup.Structure -> Html.Structure
 convertStructure struct = case struct of
@@ -15,8 +21,9 @@ convertStructure struct = case struct of
   Markup.CodeBlock lst -> Html.code_ . unlines $ lst
 
 buildIndex :: [(FilePath, Markup.Document)] -> Html.Html
-buildIndex files = Html.html_ "Blog" (title <> listings <> previews)
+buildIndex files = Html.html_ headd (title <> listings <> previews)
   where
+    headd = Html.title_ "Blog"
     title = Html.h_ 1 . Html.link_ "index.html" . Html.txt_ $ "Blog"
     listings = Html.h_ 2 . Html.txt_ $ "Posts"
     previews = mconcat . preview $ files

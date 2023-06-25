@@ -7,25 +7,28 @@ where
 
 import Control.Exception
 import Control.Monad
+import Control.Monad.Reader
 import Data.List
 import Data.Traversable
 import HsBlog.Convert (convert, convertStructure)
+import HsBlog.Env (Env (eBlogName, eStylesheetPath))
 import qualified HsBlog.Html as Html
 import qualified HsBlog.Markup as Markup
 import System.Directory
 import System.Exit
 import System.FilePath
 import System.IO
+import Prelude hiding (head)
 
 -- | Copy files from one directory to another, converting '.norg' files to
 --   '.html' files in the process. Recording unsuccessful reads and writes to stderr.
 --
 -- May throw an exception on output directory creation.
-convertDirectory :: FilePath -> FilePath -> IO ()
-convertDirectory inputDir outputDir = do
+convertDirectory :: Env -> FilePath -> FilePath -> IO ()
+convertDirectory env inputDir outputDir = do
   DirContents filesToProcess filesToCopy <- getDirFilesAndContent inputDir
   createOutputDirectoryOrExit outputDir
-  let outputHtmls = orgsToRenderedHtml filesToProcess
+  let outputHtmls = runReader (orgsToRenderedHtml filesToProcess) env
   copyFiles outputDir filesToCopy
   writeFiles outputDir outputHtmls
   putStrLn "Done."
@@ -60,44 +63,51 @@ data DirContents = DirContents
 
 -- * Build index page
 
-buildIndex :: [(FilePath, Markup.Document)] -> Html.Html
-buildIndex files =
+buildIndex :: [(FilePath, Markup.Document)] -> Reader Env Html.Html
+buildIndex files = do
+  env <- ask
   let previews =
         map
           ( \(file, doc) ->
               case doc of
-                Markup.Heading 1 heading : article ->
-                  Html.h_ 3 (Html.link_ file (Html.txt_ heading))
+                Markup.Heading 1 headx : article ->
+                  Html.h_ 3 (Html.link_ file (Html.txt_ headx))
                     <> foldMap convertStructure (take 2 article)
                     <> Html.p_ (Html.link_ file (Html.txt_ "..."))
                 _ ->
                   Html.h_ 3 (Html.link_ file (Html.txt_ file))
           )
           files
-   in Html.html_
-        "Blog"
-        ( Html.h_ 1 (Html.link_ "index.html" (Html.txt_ "Blog"))
-            <> Html.h_ 2 (Html.txt_ "Posts")
-            <> mconcat previews
-        )
+  pure $
+    Html.html_
+      ( Html.title_ (eBlogName env)
+          <> Html.stylesheet_ (eStylesheetPath env)
+      )
+      ( Html.h_ 1 (Html.link_ "index.html" (Html.txt_ "Blog"))
+          <> Html.h_ 2 (Html.txt_ "Posts")
+          <> mconcat previews
+      )
 
 ------------------------------------
 
 -- * Conversion
 
 -- | Convert text files to Markup, build an index, and render as html.
-orgsToRenderedHtml :: [(FilePath, String)] -> [(FilePath, String)]
-orgsToRenderedHtml orgFiles =
+orgsToRenderedHtml :: [(FilePath, String)] -> Reader Env [(FilePath, String)]
+orgsToRenderedHtml orgFiles = do
   let orgOutputFiles = map toOutputMarkupFile orgFiles
-      index = ("index.html", buildIndex orgOutputFiles)
-   in map (fmap Html.render) (index : map convertFile orgOutputFiles)
+  index <- (,) "index.html" <$> buildIndex orgOutputFiles
+  htmlPages <- traverse convertFile orgOutputFiles
+  return $ map (fmap Html.render) (index : htmlPages)
 
 toOutputMarkupFile :: (FilePath, String) -> (FilePath, Markup.Document)
 toOutputMarkupFile (file, content) =
   (takeBaseName file <.> "html", Markup.parse content)
 
-convertFile :: (FilePath, Markup.Document) -> (FilePath, Html.Html)
-convertFile (file, doc) = (file, convert file doc)
+convertFile :: (FilePath, Markup.Document) -> Reader Env (FilePath, Html.Html)
+convertFile (file, doc) = do
+  env <- ask
+  return (file, convert env (takeBaseName file) doc)
 
 ------------------------------------
 

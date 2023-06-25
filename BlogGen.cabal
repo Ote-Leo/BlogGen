@@ -27,9 +27,11 @@ library
       base
     , directory
     , filepath
+    , mtl
   exposed-modules:
     HsBlog
       HsBlog.Convert
+      HsBlog.Env
       HsBlog.Html
         HsBlog.Html.Internal
       HsBlog.Markup
