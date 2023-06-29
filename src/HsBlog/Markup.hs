@@ -6,12 +6,23 @@ type Document = [Structure]
 
 type Lines = [String]
 
+{- | Represents a single markup structure
+
+- A paragraph
+- An unordered list
+- A code block
+-}
 data Structure
   = Heading Int String
+  -- ^ A section heading with a level
   | Paragraph String
+  -- ^ A Paragraph
   | OrderedList [String]
+  -- ^ An ordered list of strings
   | UnorderedList [String]
+  -- ^ An unordered list of strings
   | CodeBlock [String]
+  -- ^ A code block
   deriving (Show, Eq)
 
 parse :: String -> Document

@@ -14,14 +14,19 @@ type Title = String
 
 -- * EDSL
 
-html_ :: Head -> Structure -> Html
+-- | Construct an HTML page from a `Head`
+--   and a `Structure`
+html_
+  :: Head -- ^ Represents the @\<head\>@ section in an HTML file
+  -> Structure -- ^ Represents the @\<body\>@ section in an HTML file
+  -> Html
 html_ (Head headd) content = Html . docComp $ docHead <> docBody
   where
     docComp = el "html" . getContent
     docHead = head_ headd
     docBody = body_ . getContent $ content
 
--- * Structure
+-- ** Structure
 
 body_ :: String -> Structure
 body_ = structConst "body"
@@ -72,7 +77,7 @@ instance Semigroup Structure where
 instance Monoid Structure where
   mempty = empty_
 
--- * Content
+-- ** Content
 
 txt_ :: String -> Content
 txt_ = Content . escape
@@ -95,12 +100,12 @@ instance Semigroup Content where
 instance Monoid Content where
   mempty = Content ""
 
--- * Render
+-- ** Render
 
 render :: Html -> String
 render (Html x) = x
 
--- * Utilities
+-- ** Utilities
 
 el :: String -> String -> String
 el tag content = "<" <> tag <> ">" <> content <> "</" <> tag <> ">"
